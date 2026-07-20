@@ -1,5 +1,5 @@
 {
-  "next_id": 2,
+  "next_id": 3,
   "offset": 656941414,
   "requests": [
     {
@@ -17,6 +17,22 @@
       "url_template": "https://in.bookmyshow.com/movies/coimbatore/spiderman-brand-new-day/buytickets/ET00447840/{date}",
       "created_at": 1784536278,
       "last_checked": 1784537341
+    },
+    {
+      "id": 2,
+      "chat_id": 1022226796,
+      "movie": "The Odyssey",
+      "date": "20260720",
+      "time": null,
+      "venue_name": "Broadway Cinemas Coimbatore",
+      "venue_code": "BWCB",
+      "venue_label": "Broadway Cinemas: Coimbatore",
+      "region": "coimbatore",
+      "slug": "the-odyssey",
+      "event_code": "ET00480917",
+      "url_template": "https://in.bookmyshow.com/movies/coimbatore/the-odyssey/buytickets/ET00480917/{date}",
+      "created_at": 1784537000,
+      "last_checked": null
     }
   ]
 }
