@@ -1,8 +1,9 @@
 # Movie-Alert
 
-Get a **Telegram** ping the moment a specific **movie + theatre + date** opens
-for booking on BookMyShow. Runs on **GitHub Actions**, triggered every ~10 min
-by **cron-job.org** — nothing to keep running on your own machine.
+Get a **Telegram** ping the moment a **movie + theatre + date** opens for booking
+on BookMyShow. You add and remove watches straight from Telegram (`/request`,
+`/list`, `/delete`) — no file editing. Runs on **GitHub Actions**, triggered every
+~10 min by **cron-job.org** — nothing to keep running on your own machine.
 
 <img width="1220" height="1076" alt="Media" src="https://github.com/user-attachments/assets/3c6a8f8e-5458-42a5-a870-9001a9990de3" />
 
@@ -11,10 +12,19 @@ by **cron-job.org** — nothing to keep running on your own machine.
 
 1. **cron-job.org** triggers the workflow every ~10 min (GitHub's own scheduler
    is unreliable, so we trigger it externally).
-2. `poller.py` fetches the BMS page through **ScraperAPI** (an India IP — BMS
-   blocks foreign/datacenter IPs and returns 403 otherwise).
-3. It checks whether your target is open and, on the `False → True` flip, sends
-   one Telegram message. Last-seen state lives in `state.json`.
+2. Each run, `bot.py` does three things:
+   - **Drains your Telegram commands** since the last run (`getUpdates`) and
+     applies them to the request store.
+   - **Checks every active watch** — fetching each unique movie+date once through
+     **ScraperAPI** (an India IP; BMS 403s foreign/datacenter IPs).
+   - When a watch's date opens at its venue, it **sends the alert and deletes that
+     watch**, then commits `requests.json` back to the repo.
+3. Because commands are only processed on each ~10-min run, replies (including
+   `/request` confirmations) can lag up to ~10 minutes. Commands are accepted
+   **only from your own chat** (`TELEGRAM_CHAT_ID`).
+
+> The older single-target `poller.py` (driven by `config.json` + `state.json`) is
+> still in the repo and reused by `bot.py` for its fetch/Telegram helpers.
 
 ## 1. Telegram bot
 
@@ -35,34 +45,37 @@ Sign up at **scraperapi.com** (free tier) and copy your API key.
 - `TELEGRAM_CHAT_ID`
 - `SCRAPERAPI_KEY`
 
-## 4. Configure `config.json`
+## 4. Add watches from Telegram
 
-Pick a `detector`. The page URL is built from `url_template` + `requested_date`.
-After editing, reset `state.json` to `{"available": false}`.
+Message your bot. Commands are only accepted from your own chat.
 
-**`venue_date`** — a specific theatre opens for a specific date (most precise):
-```json
-{
-  "detector": "venue_date",
-  "movie": "The Odyssey (IMAX 2D)",
-  "requested_date": "20260722",
-  "venue_code": "INPR",
-  "venue_label": "INOX: LUXE Phoenix Market City, Velachery",
-  "url_template": "https://in.bookmyshow.com/movies/chennai/the-odyssey/buytickets/ET00480917/{date}"
-}
+**`/request`** — add a watch. Send one message with labeled lines (Time optional):
+
 ```
-Use `"venue_codes": ["PVPZ","INPR"]` to fire when *any* of several theatres open.
-
-**`bms_date`** — a date opens at *any* theatre (date-dominance on the page):
-```json
-{ "detector": "bms_date", "requested_date": "20260722",
-  "url_template": ".../buytickets/ET00480917/{date}", "min_references": 10 }
+/request
+Movie Name: Spider-Man: Brand New Day (IMAX 2D)
+Date: 2026-08-01
+Venue: Broadway Cinemas Coimbatore
+Time: 7:00 PM
+URL: https://in.bookmyshow.com/movies/coimbatore/spiderman-brand-new-day/buytickets/ET00447840/20260801
 ```
 
-**Finding the values:** read `<city>/<slug>/<ETcode>/<date>` from the movie's
-"Book tickets" URL. For `venue_code`, open a date where the theatre *is* open and
-read its cinema link `.../cinemas/<city>/<venue-slug>/buytickets/<CODE>/<date>` —
-the `<CODE>` (e.g. `PVPZ`, `INPR`) is the value.
+- **URL** — the movie's BookMyShow page (`.../movies/<city>/<slug>/buytickets/ET.../<date>`,
+  or the shorter `.../movies/<city>/<slug>/ET...`). City, slug and event code are
+  read from it.
+- **Date** — `YYYY-MM-DD`, `YYYYMMDD`, or `DD-MM-YYYY`.
+- **Venue** — the theatre name. The bot resolves it to BMS's venue code (e.g.
+  `BWCB`) from the page. If several match it asks you to be more specific; if none
+  are listed yet it watches by name and matches when booking opens.
+- **Time** — informational only (BMS booking links are per-date, not per-showtime);
+  it's echoed back in the alert.
+
+The bot replies with a confirmation and an id. When the date opens at that venue you
+get the alert **and the watch is auto-deleted**.
+
+**`/list`** — show active watches with their ids.
+
+**`/delete <id>`** — remove one watch (or `/delete all`).
 
 ## 5. Schedule it with cron-job.org
 
@@ -95,16 +108,17 @@ India. It's IP/geo-based — headers alone won't get past it.
 ## Reuse it (fork)
 
 Fork the repo, **enable Actions** on the fork (off by default), add your own
-secrets, edit `config.json`, reset `state.json`, and set up your own cron-job.org
-trigger. Each fork is independent with its own Telegram chat. No branches needed —
-date-only vs theatre-specific is just the `detector` field.
+secrets, and set up your own cron-job.org trigger. One repo now handles **many
+movies at once** via `/request` — no per-movie fork needed. Keep secrets out of the
+repo (`.env` is gitignored; if a token has ever been committed, rotate it).
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `poller.py` | Fetch page, detect availability, send Telegram alert |
-| `config.json` | Your movie / date / theatre target |
+| `bot.py` | Drain Telegram commands, check all watches, alert + auto-delete |
+| `requests.json` | Auto-managed store: active watches + Telegram update offset |
+| `poller.py` | Legacy single-target watcher; supplies fetch/Telegram helpers to `bot.py` |
+| `config.json`, `state.json` | Legacy single-target config + last-seen state |
 | `.github/workflows/booking-watch.yml` | The runner (dispatched by cron-job.org) |
 | `requirements.txt` | Python deps (`requests`) |
-| `state.json` | Auto-managed; tracks last-seen availability |
