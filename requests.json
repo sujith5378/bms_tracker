@@ -1,22 +1,5 @@
 {
   "next_id": 3,
   "offset": 656941417,
-  "requests": [
-    {
-      "id": 1,
-      "chat_id": 1022226796,
-      "movie": "Spider-Man: Brand New Day (IMAX 2D)",
-      "date": "20260801",
-      "time": "7:00 PM",
-      "venue_name": "Broadway Cinemas Coimbatore",
-      "venue_code": "BWCB",
-      "venue_label": "Broadway Cinemas: Coimbatore",
-      "region": "coimbatore",
-      "slug": "spiderman-brand-new-day",
-      "event_code": "ET00447840",
-      "url_template": "https://in.bookmyshow.com/movies/coimbatore/spiderman-brand-new-day/buytickets/ET00447840/{date}",
-      "created_at": 1784536278,
-      "last_checked": 1785153671
-    }
-  ]
+  "requests": []
 }
